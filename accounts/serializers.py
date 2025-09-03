@@ -155,7 +155,7 @@ class PasswordResetRequestSerializer(serializers.Serializer):
         token = PasswordResetTokenGenerator().make_token(user)
         uid = urlsafe_base64_encode(force_bytes(user.pk))
 
-        reset_link = f"https://dev.tusapp.kz/reset-password/{uid}/{token}/"
+        reset_link = f"https://test.kz/reset-password/{uid}/{token}/"
         # Заменить на фронтовую ссылку в проде
 
         send_mail(
