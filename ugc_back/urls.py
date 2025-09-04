@@ -23,6 +23,7 @@ urlpatterns = [
     # user API
     path('api/user/', include('accounts.urls')),
     path('api/brands/', include('brands.urls')),
+    path('api/bloggers/', include('bloggers.urls')),
 
 
     # Swagger / ReDoc

@@ -1,7 +1,7 @@
 from rest_framework import serializers
 from django.contrib.auth import get_user_model
 
-from .models import Product, ProductImage, ProductVideo
+from .models import Product, Invitation, ProductImage, ProductVideo
 from accounts.models import BrandProfile
 
 User = get_user_model()
@@ -71,7 +71,21 @@ class ProductSerializer(serializers.ModelSerializer):
             'images',
             'videos',
         )
-    # created_at read-only по умолчанию (auto_now_add)
+        read_only_fields = ('created_at',)
+
+
+class InvitationSerializer(serializers.ModelSerializer):
+    video_categories = serializers.ListField(
+        child=serializers.CharField(),
+        required=False,
+        allow_empty=True
+    )
+
+    class Meta:
+        model = Invitation
+        fields = ('id', 'blogger', 'product', 'message', 'video_categories', 'status', 'created_at')
+        read_only_fields = ('brand', 'status', 'created_at')
+        ref_name = "BrandInvitationSerializer"
 
 
 class PublicProductSerializer(serializers.ModelSerializer):
@@ -79,6 +93,7 @@ class PublicProductSerializer(serializers.ModelSerializer):
     brand_name = serializers.SerializerMethodField()
     images = ProductImageSerializer(many=True, read_only=True)
     videos = ProductVideoSerializer(many=True, read_only=True)
+
 
     class Meta:
         model = Product

@@ -5,17 +5,31 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.parsers import MultiPartParser, FormParser
 
-from .models import Product, ProductImage, ProductVideo
+from .models import Product, Invitation, ProductImage, ProductVideo
 from .serializers import (
     BrandProfileSerializer,
     ProductSerializer,
+    InvitationSerializer,
     PublicProductSerializer,
     PublicBrandSerializer,
     ProductImageSerializer,
     ProductVideoSerializer,
 )
 from accounts.models import BrandProfile
-from .permissions import IsBrand  # если вынесли в отдельный файл, иначе оставьте локальный класс
+
+# Если используешь список заявок блогеров
+from bloggers.models import UGCRequest
+from bloggers.serializers import UGCRequestSerializer
+
+
+class IsBrand(permissions.BasePermission):
+    def has_permission(self, request, view):
+        return (
+            request.user
+            and request.user.is_authenticated
+            and getattr(request.user, 'role', None) == 'brand'
+        )
+
 
 class BrandProfileViewSet(viewsets.ModelViewSet):
     serializer_class = BrandProfileSerializer
@@ -65,13 +79,21 @@ class ProductViewSet(viewsets.ModelViewSet):
         else:
             serializer.save()
 
+
     @action(detail=True, methods=['post'], parser_classes=[MultiPartParser, FormParser])
     def upload_media(self, request, pk=None):
+        """
+        Принимает:
+          - images[]: список файлов изображений
+          - videos[]: список файлов видео
+          - (опц.) order_images[] и order_videos[] — списки чисел для сортировки
+        """
         product = self.get_object()
 
         images = request.FILES.getlist('images')
         videos = request.FILES.getlist('videos')
 
+        # getlist есть у QueryDict; fallback на [] для не-формдата
         order_images = request.data.getlist('order_images') if hasattr(request.data, 'getlist') else []
         order_videos = request.data.getlist('order_videos') if hasattr(request.data, 'getlist') else []
 
@@ -84,6 +106,7 @@ class ProductViewSet(viewsets.ModelViewSet):
                     ProductImage.objects.create(product=product, file=f, order=order)
                 )
 
+            # ← вот тут была ошибка. Должно быть обычное enumerate(videos).
             for idx, f in enumerate(videos):
                 order = int(order_videos[idx]) if idx < len(order_videos) and str(order_videos[idx]).isdigit() else 0
                 created_videos.append(
@@ -96,6 +119,12 @@ class ProductViewSet(viewsets.ModelViewSet):
         })
 
     def _get_json_list(self, data, key):
+        """
+        Возвращает список dict из data[key].
+        Поддерживает:
+          - application/json: уже список
+          - multipart/form-data: строка с JSON
+        """
         val = data.get(key, [])
         if isinstance(val, list):
             return val
@@ -112,11 +141,17 @@ class ProductViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=['post'])
     def reorder(self, request, pk=None):
+        """
+        Тело JSON или form-data:
+          images: [{"id": 21, "order": 1}, {"id": 23, "order": 2}]
+          videos: [{"id": 5, "order": 0}]
+        """
         product = self.get_object()
 
         images = self._get_json_list(request.data, 'images')
         videos = self._get_json_list(request.data, 'videos')
 
+        # легкая валидация элементов
         def ok(item): return isinstance(item, dict) and 'id' in item
         images = [i for i in images if ok(i)]
         videos = [v for v in videos if ok(v)]
@@ -159,7 +194,29 @@ class ProductVideoViewSet(viewsets.ModelViewSet):
         return ProductVideo.objects.filter(product__brand=self.request.user)
 
 
-# Публичные вьюхи (бренд+продукты)
+class BloggerRequestViewSet(viewsets.ModelViewSet):
+    serializer_class = UGCRequestSerializer
+    permission_classes = [IsBrand]
+
+    def get_queryset(self):
+        return UGCRequest.objects.filter(product__brand=self.request.user)
+
+    def perform_update(self, serializer):
+        serializer.save()
+
+
+class InvitationViewSet(viewsets.ModelViewSet):
+    serializer_class = InvitationSerializer
+    permission_classes = [IsBrand]
+
+    def get_queryset(self):
+        return Invitation.objects.filter(brand=self.request.user)
+
+    def perform_create(self, serializer):
+        serializer.save(brand=self.request.user)
+
+
+# Публичные вьюхи
 class PublicProductListView(generics.ListAPIView):
     serializer_class = PublicProductSerializer
     queryset = Product.objects.all()
