@@ -38,6 +38,7 @@ INSTALLED_APPS = [
     'accounts',
     'brands',
     'bloggers',
+    'collab',
 
 ]
 
@@ -178,4 +179,14 @@ CHANNEL_LAYERS = {
 }
 
 
-#2 commit
+# === Google OAuth ===
+# Разрешённые клиентские ID (можно несколько: prod, stage)
+GOOGLE_OAUTH2_CLIENT_IDS = [
+    "88058850397-dno0lootnvt63vpeil766b5pcihitiom.apps.googleusercontent.com",
+]
+
+GOOGLE_ISSUERS = [
+    "accounts.google.com",
+    "https://accounts.google.com",
+]
+
