@@ -6,7 +6,8 @@ from .views import (
     BloggerRegisterView,
     MyTokenObtainPairView,
     PasswordResetRequestView,
-    PasswordResetConfirmView
+    PasswordResetConfirmView,
+    GoogleAuthView,
 )
 
 urlpatterns = [
@@ -21,5 +22,6 @@ urlpatterns = [
 
     path('password-reset/', PasswordResetRequestView.as_view(), name='password_reset'),
     path('password-reset-confirm/', PasswordResetConfirmView.as_view(), name='password_reset_confirm'),
+    path('google/', GoogleAuthView.as_view(), name='google-auth'),
 
 ]

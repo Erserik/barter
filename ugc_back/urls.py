@@ -24,6 +24,7 @@ urlpatterns = [
     path('api/user/', include('accounts.urls')),
     path('api/brands/', include('brands.urls')),
     path('api/bloggers/', include('bloggers.urls')),
+    path('api/collab/', include('collab.urls')),
 
 
     # Swagger / ReDoc

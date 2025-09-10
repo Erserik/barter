@@ -184,3 +184,25 @@ class SetNewPasswordSerializer(serializers.Serializer):
         user.set_password(data['new_password'])
         user.save()
         return data
+
+
+# apps/accounts/serializers.py
+from rest_framework import serializers
+from .models import BloggerProfile
+
+class GoogleAuthSerializer(serializers.Serializer):
+    id_token = serializers.CharField()
+    # На первом входе можно принять желаемую роль и профильные поля
+    role = serializers.ChoiceField(choices=['brand', 'blogger', 'manager'], required=False)
+    full_name = serializers.CharField(required=False, allow_blank=True)
+    city = serializers.CharField(required=False, allow_blank=True)
+    gender = serializers.ChoiceField(
+        choices=[c[0] for c in BloggerProfile.GENDER_CHOICES],
+        required=False
+    )
+    description = serializers.CharField(required=False, allow_blank=True)
+    instagram = serializers.URLField(required=False, allow_blank=True)
+    tiktok = serializers.URLField(required=False, allow_blank=True)
+    youtube = serializers.URLField(required=False, allow_blank=True)
+    company_name = serializers.CharField(required=False, allow_blank=True)
+    category = serializers.CharField(required=False, allow_blank=True)
