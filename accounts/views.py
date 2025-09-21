@@ -216,3 +216,107 @@ class GoogleAuthView(APIView):
             return Response({"detail": "Invalid Google id_token"}, status=status.HTTP_400_BAD_REQUEST)
         except Exception as e:
             return Response({"detail": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+
+import requests
+from rest_framework.views import APIView
+from rest_framework.response import Response
+from rest_framework import permissions
+
+GEONAMES_USERNAME = "yerko"  # зарегистрируйся на geonames.org
+
+class KazakhstanCitiesExternalView(APIView):
+    """
+    GET /api/geo/cities/kz/
+    Достаёт список городов Казахстана с GeoNames.
+    """
+    permission_classes = [permissions.AllowAny]
+
+    def get(self, request):
+        url = "http://api.geonames.org/searchJSON"
+        params = {
+            "country": "KZ",          # ISO код Казахстана
+            "featureClass": "P",      # населённые пункты
+            "maxRows": 100,           # сколько городов достать
+            "orderby": "population",  # сортировка по населению
+            "username": GEONAMES_USERNAME,
+        }
+
+        resp = requests.get(url, params=params, timeout=10)
+        if resp.status_code != 200:
+            return Response({"error": "GeoNames API error"}, status=resp.status_code)
+
+        data = resp.json()
+        cities = [g["name"] for g in data.get("geonames", [])]
+
+        return Response({
+            "country": "Kazakhstan",
+            "count": len(cities),
+            "cities": cities
+        })
+import requests
+from rest_framework.views import APIView
+from rest_framework.response import Response
+from rest_framework import permissions
+
+SOAP_URL = "http://webservices.oorsprong.org/websamples.countryinfo/CountryInfoService.wso"
+
+class CountryInfoSoapView(APIView):
+    """
+    GET /api/user/soap/country-info/?country=KZ
+    Возвращает столицу, валюту, телефонный код и языки из SOAP.
+    """
+    permission_classes = [permissions.AllowAny]
+
+    def get(self, request):
+        country_code = request.query_params.get("country", "KZ")
+
+        results = {
+            "country": country_code,
+            "capital": None,
+            "currency": None,
+            "phone_code": None,
+            "languages": [],
+            "raw": {}
+        }
+
+        def call_soap(action, body):
+            headers = {
+                "Content-Type": "text/xml; charset=utf-8",
+                "SOAPAction": f"http://www.oorsprong.org/websamples.countryinfo/{action}"
+            }
+            envelope = f"""
+            <soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/">
+              <soap:Body>
+                {body}
+              </soap:Body>
+            </soap:Envelope>
+            """
+            resp = requests.post(SOAP_URL, data=envelope.strip(), headers=headers, timeout=10)
+            return resp.text
+
+        # Столица
+        capital_xml = call_soap("CapitalCity", f"<CapitalCity xmlns='http://www.oorsprong.org/websamples.countryinfo'><sCountryISOCode>{country_code}</sCountryISOCode></CapitalCity>")
+        results["raw"]["capital"] = capital_xml
+        if "<m:CapitalCityResult>" in capital_xml:
+            results["capital"] = capital_xml.split("<m:CapitalCityResult>")[1].split("</m:CapitalCityResult>")[0]
+
+        # Валюта
+        currency_xml = call_soap("CountryCurrency", f"<CountryCurrency xmlns='http://www.oorsprong.org/websamples.countryinfo'><sCountryISOCode>{country_code}</sCountryISOCode></CountryCurrency>")
+        results["raw"]["currency"] = currency_xml
+        if "<m:sName>" in currency_xml:
+            results["currency"] = currency_xml.split("<m:sName>")[1].split("</m:sName>")[0]
+
+        # Телефонный код
+        phone_xml = call_soap("CountryIntPhoneCode", f"<CountryIntPhoneCode xmlns='http://www.oorsprong.org/websamples.countryinfo'><sCountryISOCode>{country_code}</sCountryISOCode></CountryIntPhoneCode>")
+        results["raw"]["phone_code"] = phone_xml
+        if "<m:CountryIntPhoneCodeResult>" in phone_xml:
+            results["phone_code"] = phone_xml.split("<m:CountryIntPhoneCodeResult>")[1].split("</m:CountryIntPhoneCodeResult>")[0]
+
+        # Языки
+        lang_xml = call_soap("CountryLanguages", f"<CountryLanguages xmlns='http://www.oorsprong.org/websamples.countryinfo'><sCountryISOCode>{country_code}</sCountryISOCode></CountryLanguages>")
+        results["raw"]["languages"] = lang_xml
+        if "<m:sName>" in lang_xml:
+            results["languages"] = [l.split("</m:sName>")[0] for l in lang_xml.split("<m:sName>")[1:]]
+
+        return Response(results)

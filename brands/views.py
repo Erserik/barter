@@ -271,6 +271,10 @@ class PublicBrandDetailView(generics.RetrieveAPIView):
         user_id = self.kwargs["id"]
         return BrandProfile.objects.get(user__id=user_id)
 
+from django.core.cache import cache
+import logging
+
+logger = logging.getLogger(__name__)
 
 class BrandsByCategoryView(generics.ListAPIView):
     serializer_class = PublicBrandSerializer
@@ -278,4 +282,63 @@ class BrandsByCategoryView(generics.ListAPIView):
 
     def get_queryset(self):
         category = self.kwargs.get('category')
-        return BrandProfile.objects.filter(category__iexact=category)
+        cache_key = f"brands_category_{category}"
+
+        data = cache.get(cache_key)
+        if data:
+            logger.info(f"✅ Cache hit for {cache_key}")
+            print(f"✅ Cache hit for {cache_key}")  # видно в консоли runserver
+            return data
+
+        queryset = BrandProfile.objects.filter(category__iexact=category)
+        cache.set(cache_key, queryset, timeout=600)  # 60 сек
+        logger.info(f"❌ Cache miss → query to DB for {cache_key}")
+        print(f"❌ Cache miss → query to DB for {cache_key}")
+        return queryset
+
+
+from elasticsearch import Elasticsearch
+from rest_framework.views import APIView
+from rest_framework.response import Response
+from .serializers import PublicProductSerializer
+from .models import Product
+
+es = Elasticsearch("http://127.0.0.1:9200")
+
+class ProductSearchView(APIView):
+    def get(self, request):
+        query = request.GET.get("q", "")
+        if not query:
+            return Response({"results": []})
+
+        body = {
+            "query": {
+                "multi_match": {
+                    "query": query,
+                    "fields": ["name^3", "description", "category"],
+                    "fuzziness": "AUTO"
+                }
+            },
+            "highlight": {
+                "fields": {
+                    "name": {},
+                    "description": {}
+                }
+            }
+        }
+
+        res = es.search(index="products", body=body)
+
+        ids = [int(hit["_id"]) for hit in res["hits"]["hits"]]
+        products = Product.objects.filter(id__in=ids)
+
+        # сохранить порядок из elastic
+        products_dict = {p.id: p for p in products}
+        ordered_products = [
+            products_dict.get(int(hit["_id"]))
+            for hit in res["hits"]["hits"]
+            if int(hit["_id"]) in products_dict
+        ]
+
+        serializer = PublicProductSerializer(ordered_products, many=True)
+        return Response(serializer.data)

@@ -30,6 +30,9 @@ urlpatterns = [
     # Swagger / ReDoc
     path('swagger/', schema_view.with_ui('swagger', cache_timeout=0), name='swagger-ui'),
     path('redoc/',  schema_view.with_ui('redoc',  cache_timeout=0), name='redoc'),
+
+    path("api/esb/", include("esb.urls")),
+
 ]
 
 if settings.DEBUG:

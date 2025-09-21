@@ -16,6 +16,7 @@ from .views import (
     BrandsByCategoryView,
     PublicProductDetailView,
     LatestProductsByCountView,
+    ProductSearchView,
 )
 
 router = DefaultRouter()
@@ -37,4 +38,8 @@ urlpatterns += [
     path('public/brands/', PublicBrandListView.as_view(), name='public-brands'),
     path('public/brands/<int:id>/', PublicBrandDetailView.as_view(), name='brand-detail'),
     path('public/brands/category/<str:category>/', BrandsByCategoryView.as_view(), name='brands-by-category'),
+
+    path("search/", ProductSearchView.as_view(), name="product-search"),
+
 ]
+

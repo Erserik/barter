@@ -8,6 +8,10 @@ from .views import (
     PasswordResetRequestView,
     PasswordResetConfirmView,
     GoogleAuthView,
+    KazakhstanCitiesExternalView,
+
+    CountryInfoSoapView,
+
 )
 
 urlpatterns = [
@@ -23,5 +27,10 @@ urlpatterns = [
     path('password-reset/', PasswordResetRequestView.as_view(), name='password_reset'),
     path('password-reset-confirm/', PasswordResetConfirmView.as_view(), name='password_reset_confirm'),
     path('google/', GoogleAuthView.as_view(), name='google-auth'),
+
+    path("cities/kz/", KazakhstanCitiesExternalView.as_view(), name="kz-cities-external"),
+
+    path("soap/country-info/", CountryInfoSoapView.as_view(), name="soap-country-info"),
+
 
 ]
